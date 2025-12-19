@@ -1,27 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
- <link rel="stylesheet" href="styles.css">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>To-Do List</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
+
 <body>
-    <header>
-        <h1>My To-Do List</h1>
-    <div>
-        <input type="text" id="taskName" placeholder="taskName..">
-        <input type="text" id="taskInput" placeholder="Add a new task...">
-        <button id="addTaskButton">Add Task</button>
+  <header>
+    <h1>My To-Do List</h1>
+
+    <div class="formRow">
+      <input type="text" id="taskName" placeholder="Task title..." />
+      <textarea id="taskInput" placeholder="Task description..."></textarea>
+      <button id="addTaskButton" type="button">Add Task</button>
     </div>
-    <div>
-    <button id="deleteTaskButton">Delete Task</button>
-    </div>
-    <div>
-    <button id="editTaskButton">Edit task</button>
-    </div>
-    </header>
-    <section id="taskContainer">taskContainer</section>
-    <script src="app.js"></script>
+  </header>
+
+  <section id="taskContainer">
+    <table>
+      <thead>
+        <tr>
+          <th>Task Title</th>
+          <th>Task Description</th>
+          <th>CreatedAt</th>
+          <th>Edited At</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="taskBody"></tbody>
+    </table>
+  </section>
+
+  <script src="app.js"></script>
 </body>
 </html>
