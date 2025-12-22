@@ -3,12 +3,19 @@ const elms = {
   taskInput: document.getElementById("taskInput"),
   addTaskButton: document.getElementById("addTaskButton"),
   taskBody: document.getElementById("taskBody"),
+  searchInput: document.getElementById("searchInput"),
+  prevPageBtn: document.getElementById("prevPageBtn"),
+  nextPageBtn: document.getElementById("nextPageBtn"),
+  pageInfo: document.getElementById("pageInfo"),
 };
 
 const STORAGE_KEY = "todo_tasks";
 
 let tasks = loadTasks();
 let nextId = loadNextId();
+let page = 1;
+const tasksPerPage = 5;
+let searchTerm = "";
 
 function getTime() {
   return new Date().toLocaleString();
@@ -39,6 +46,53 @@ elms.taskInput.addEventListener("input", function () {
   this.style.height = "auto";
   this.style.height = this.scrollHeight + "px";
 });
+function getFilteredTasks() {
+  const q = searchTerm.trim().toLowerCase();
+  if (!q) return tasks;
+
+  return tasks.filter(t => {
+    return (
+      (t.title || "").toLowerCase().includes(q) ||
+      (t.description || "").toLowerCase().includes(q)
+    );
+  });
+}
+
+function getTotalPages(filteredCount) {
+  return Math.max(1, Math.ceil(filteredCount / tasksPerPage));
+}
+
+function clampPage() {
+  const filtered = getFilteredTasks();
+  const totalPages = getTotalPages(filtered.length);
+  if (page > totalPages) page = totalPages;
+  if (page < 1) page = 1;
+}
+
+function updatePaginationUI(filteredCount) {
+  const totalPages = getTotalPages(filteredCount);
+
+  elms.pageInfo.textContent = `Page ${page} / ${totalPages}`;
+  elms.prevPageBtn.disabled = page === 1;
+  elms.nextPageBtn.disabled = page === totalPages;
+}
+
+
+function renderAll() {
+  elms.taskBody.innerHTML = "";
+
+  const filtered = getFilteredTasks();
+  clampPage();
+
+  const start = (page - 1) * tasksPerPage;
+  const visible = filtered.slice(start, start + tasksPerPage);
+
+  for (const task of visible) {
+    elms.taskBody.appendChild(createRow(task));
+  }
+
+  updatePaginationUI(filtered.length);
+}
 
 function createRow(task) {
   const row = document.createElement("tr");
@@ -98,11 +152,7 @@ function createRow(task) {
       return;
     }
 
-    tdName.textContent = newTitle;
-    tdDesc.textContent = newDesc;
-
     const editedTime = getTime();
-    tdEditedAt.textContent = editedTime;
 
     const id = Number(row.dataset.id);
     const t = tasks.find(x => x.id === id);
@@ -113,26 +163,18 @@ function createRow(task) {
       saveAll();
     }
 
-    saveBtn.style.display = "none";
-    editBtn.style.display = "inline-block";
     clearInputs();
+    renderAll();
   });
 
   deleteBtn.addEventListener("click", () => {
     const id = Number(row.dataset.id);
     tasks = tasks.filter(x => x.id !== id);
     saveAll();
-    row.remove();
+    renderAll();
   });
 
   return row;
-}
-
-function renderAll() {
-  elms.taskBody.innerHTML = "";
-  for (const task of tasks) {
-    elms.taskBody.appendChild(createRow(task));
-  }
 }
 
 function addtask() {
@@ -155,10 +197,30 @@ function addtask() {
   tasks.push(task);
   saveAll();
 
-  elms.taskBody.appendChild(createRow(task));
   clearInputs();
+
+  
+  const filteredAfterAdd = getFilteredTasks(); 
+  page = getTotalPages(filteredAfterAdd.length);
+
+  renderAll();
 }
 
 elms.addTaskButton.addEventListener("click", addtask);
 
+elms.searchInput.addEventListener("input", () => {
+  searchTerm = elms.searchInput.value;
+  page = 1; 
+  renderAll();
+});
+
+elms.prevPageBtn.addEventListener("click", () => {
+  page--;
+  renderAll();
+});
+
+elms.nextPageBtn.addEventListener("click", () => {
+  page++;
+  renderAll();
+});
 renderAll();

@@ -16,6 +16,10 @@
       <textarea id="taskInput" placeholder="Task description..."></textarea>
       <button id="addTaskButton" type="button">Add Task</button>
     </div>
+
+    <div class="toolsRow">
+      <input type="text" id="searchInput" placeholder="Search tasks..." />
+    </div>
   </header>
 
   <section id="taskContainer">
@@ -31,6 +35,12 @@
       </thead>
       <tbody id="taskBody"></tbody>
     </table>
+
+    <div class="pagination">
+      <button id="prevPageBtn" type="button">Prev</button>
+      <span id="pageInfo"></span>
+      <button id="nextPageBtn" type="button">Next</button>
+    </div>
   </section>
 
   <script src="app.js"></script>
