@@ -12,24 +12,38 @@
     <h1>My To-Do List</h1>
 
     <div class="formRow">
-      <input type="text" id="taskName" placeholder="Task title..." />
-      <textarea id="taskInput" placeholder="Task description..."></textarea>
-      <button id="addTaskButton" type="button">Add Task</button>
-    </div>
+      <div class="field">
+        <span class="error" id="nameError">Required</span>
+        <input type="text" id="taskName" placeholder="Task title..." />
+      </div>
 
-    <div class="toolsRow">
-      <input type="text" id="searchInput" placeholder="Search tasks..." />
+      <div class="field">
+        <span class="error" id="descError">Required</span>
+        <textarea id="taskInput" placeholder="Task description..."></textarea>
+      </div>
+
+      <div class="field">
+        <span class="error" id="dueError">Required</span>
+        <input type="datetime-local" id="dueInput" />
+      </div>
+
+      <button id="addTaskButton" type="button">Add Task</button>
     </div>
   </header>
 
   <section id="taskContainer">
+    <div class="toolsRow">
+      <input type="text" id="searchInput" placeholder="Search tasks..." />
+    </div>
+
     <table>
       <thead>
         <tr>
           <th>Task Title</th>
           <th>Task Description</th>
-          <th>CreatedAt</th>
+          <th>Created At</th>
           <th>Edited At</th>
+          <th>Due Date</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -42,6 +56,33 @@
       <button id="nextPageBtn" type="button">Next</button>
     </div>
   </section>
+
+ 
+  <dialog id="editDialog" class="dialog">
+    <form method="dialog" class="dialogCard" id="editForm">
+      <h2>Edit Task</h2>
+
+      <label class="dlgField">
+        Title
+        <input type="text" id="editTitle" />
+      </label>
+
+      <label class="dlgField">
+        Description
+        <textarea id="editDesc"></textarea>
+      </label>
+
+      <label class="dlgField">
+        Due date
+        <input type="datetime-local" id="editDue" />
+      </label>
+
+      <div class="dlgActions">
+        <button type="button" id="cancelEditBtn" class="btnGhost">Cancel</button>
+        <button type="submit" id="confirmEditBtn" class="btnPrimary">Save</button>
+      </div>
+    </form>
+  </dialog>
 
   <script src="app.js"></script>
 </body>
