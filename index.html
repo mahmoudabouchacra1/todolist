@@ -34,11 +34,13 @@
   <section id="taskContainer">
     <div class="toolsRow">
       <input type="text" id="searchInput" placeholder="Search tasks..." />
+
+      <div class="historyBtns">
+        <button id="undoBtn" type="button">Undo</button>
+        <button id="redoBtn" type="button">Redo</button>
+      </div>
     </div>
-     <div class="historyBtns">
-    <button id="undoBtn" type="button">Undo</button>
-    <button id="redoBtn" type="button">Redo</button>
-  </div>
+
     <table>
       <thead>
         <tr>
@@ -48,6 +50,8 @@
           <th>Created At</th>
           <th>Edited At</th>
           <th>Due Date</th>
+          <th>Status</th>
+          <th>Timer</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -61,7 +65,7 @@
     </div>
   </section>
 
- 
+  
   <dialog id="editDialog" class="dialog">
     <form method="dialog" class="dialogCard" id="editForm">
       <h2>Edit Task</h2>
