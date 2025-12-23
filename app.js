@@ -1,13 +1,19 @@
+"use strict";
+
 const elms = {
   taskName: document.getElementById("taskName"),
   taskInput: document.getElementById("taskInput"),
   dueInput: document.getElementById("dueInput"),
   addTaskButton: document.getElementById("addTaskButton"),
   taskBody: document.getElementById("taskBody"),
+
   searchInput: document.getElementById("searchInput"),
   prevPageBtn: document.getElementById("prevPageBtn"),
   nextPageBtn: document.getElementById("nextPageBtn"),
   pageInfo: document.getElementById("pageInfo"),
+
+  undoBtn: document.getElementById("undoBtn"),
+  redoBtn: document.getElementById("redoBtn"),
 };
 
 const STORAGE_KEY = "todo_tasks_v2_utc";
@@ -19,20 +25,78 @@ const tasksPerPage = 5;
 let searchTerm = "";
 
 
+const undoStack = [];
+const redoStack = [];
+const MAX_HISTORY = 50;
+
+function cloneState() {
+  return {
+    tasks: JSON.parse(JSON.stringify(tasks)),
+    nextId,
+    page,
+    searchTerm
+  };
+}
+
+function restoreState(state) {
+  tasks = JSON.parse(JSON.stringify(state.tasks));
+  nextId = state.nextId;
+  page = state.page;
+  searchTerm = state.searchTerm;
+  elms.searchInput.value = searchTerm;
+}
+
+function pushHistory() {
+  undoStack.push(cloneState());
+  if (undoStack.length > MAX_HISTORY) undoStack.shift();
+  redoStack.length = 0; 
+  updateHistoryUI();
+}
+
+function undo() {
+  if (undoStack.length === 0) return;
+  redoStack.push(cloneState());
+  const prev = undoStack.pop();
+  restoreState(prev);
+  saveAll();
+  renderAll();
+  updateHistoryUI();
+}
+
+function redo() {
+  if (redoStack.length === 0) return;
+  undoStack.push(cloneState());
+  const next = redoStack.pop();
+  restoreState(next);
+  saveAll();
+  renderAll();
+  updateHistoryUI();
+}
+
+function updateHistoryUI() {
+  elms.undoBtn.disabled = undoStack.length === 0;
+  elms.redoBtn.disabled = redoStack.length === 0;
+}
+
+elms.undoBtn.addEventListener("click", undo);
+elms.redoBtn.addEventListener("click", redo);
+
+
+
+
 function nowUtcIso() {
-  return new Date().toISOString(); 
+  return new Date().toISOString();
 }
 
 function formatLocal(isoOrNull) {
   if (!isoOrNull) return "—";
   const d = new Date(isoOrNull);
-  return isNaN(d) ? "—" : d.toLocaleString(); 
+  return isNaN(d) ? "—" : d.toLocaleString();
 }
 
 function pad2(n) {
   return String(n).padStart(2, "0");
 }
-
 
 function toDateTimeLocalValue(utcIso) {
   const d = new Date(utcIso);
@@ -44,10 +108,9 @@ function toDateTimeLocalValue(utcIso) {
   return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
 }
 
-
 function localValueToUtcIso(localValue) {
   if (!localValue) return null;
-  const d = new Date(localValue); 
+  const d = new Date(localValue);
   return isNaN(d) ? null : d.toISOString();
 }
 
@@ -84,7 +147,6 @@ elms.taskInput.addEventListener("input", function () {
 function getFilteredTasks() {
   const q = searchTerm.trim().toLowerCase();
   if (!q) return tasks;
-
   return tasks.filter(t => {
     return (
       (t.title || "").toLowerCase().includes(q) ||
@@ -111,6 +173,25 @@ function updatePaginationUI(filteredCount) {
   elms.nextPageBtn.disabled = (page === totalPages) || (filteredCount === 0);
 }
 
+
+let draggingId = null;
+
+function reorderByIds(dragId, dropId) {
+  const fromIdx = tasks.findIndex(t => t.id === dragId);
+  const toIdx = tasks.findIndex(t => t.id === dropId);
+  if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
+
+  
+  pushHistory();
+
+  const [moved] = tasks.splice(fromIdx, 1);
+  tasks.splice(toIdx, 0, moved);
+
+  saveAll();
+  renderAll();
+}
+
+
 function renderAll() {
   elms.taskBody.innerHTML = "";
 
@@ -119,6 +200,7 @@ function renderAll() {
 
   if (filtered.length === 0) {
     updatePaginationUI(0);
+    updateHistoryUI();
     return;
   }
 
@@ -130,6 +212,7 @@ function renderAll() {
   }
 
   updatePaginationUI(filtered.length);
+  updateHistoryUI();
 }
 
 
@@ -153,11 +236,13 @@ editForm.addEventListener("submit", (e) => {
 
   const newTitle = editTitle.value.trim();
   const newDesc = editDesc.value.trim();
-
   if (!newTitle || !newDesc) {
     alert("please fill in title and description");
     return;
   }
+
+  
+  pushHistory();
 
   const dueAtUtc = localValueToUtcIso(editDue.value);
 
@@ -181,6 +266,45 @@ editForm.addEventListener("submit", (e) => {
 function createRow(task) {
   const row = document.createElement("tr");
   row.dataset.id = task.id;
+
+  
+  const dragEnabled = searchTerm.trim() === "";
+  row.draggable = dragEnabled;
+
+  
+  row.addEventListener("dragstart", (e) => {
+    if (!dragEnabled) return;
+    draggingId = Number(row.dataset.id);
+    row.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+  });
+
+  row.addEventListener("dragend", () => {
+    row.classList.remove("dragging");
+    draggingId = null;
+  });
+
+  row.addEventListener("dragover", (e) => {
+    if (!dragEnabled) return;
+    e.preventDefault(); 
+    e.dataTransfer.dropEffect = "move";
+  });
+
+  row.addEventListener("drop", (e) => {
+    if (!dragEnabled) return;
+    e.preventDefault();
+    const dropId = Number(row.dataset.id);
+    if (draggingId == null) return;
+    reorderByIds(draggingId, dropId);
+  });
+
+  
+  const tdMove = document.createElement("td");
+  const handle = document.createElement("span");
+  handle.className = "dragHandle";
+  handle.title = dragEnabled ? "Drag to reorder" : "Clear search to reorder";
+  handle.textContent = "drag & drop";
+  tdMove.appendChild(handle);
 
   const tdName = document.createElement("td");
   tdName.textContent = task.title;
@@ -214,7 +338,8 @@ function createRow(task) {
   deleteBtn.type = "button";
 
   tdActions.append(editBtn, deleteBtn);
-  row.append(tdName, tdDesc, tdCreatedAt, tdEditedAt, tdDue, tdActions);
+
+  row.append(tdMove, tdName, tdDesc, tdCreatedAt, tdEditedAt, tdDue, tdActions);
 
   editBtn.addEventListener("click", () => {
     editingId = Number(row.dataset.id);
@@ -230,6 +355,10 @@ function createRow(task) {
 
   deleteBtn.addEventListener("click", () => {
     const id = Number(row.dataset.id);
+
+    
+    pushHistory();
+
     tasks = tasks.filter(x => x.id !== id);
     saveAll();
     renderAll();
@@ -279,6 +408,9 @@ function addtask() {
 
   if (!valid) return;
 
+ 
+  pushHistory();
+
   const task = {
     id: nextId++,
     title: name,
@@ -301,7 +433,7 @@ function addtask() {
 elms.addTaskButton.addEventListener("click", addtask);
 
 
-function debounce(fn, delay = 300) {
+function debounce(fn, delay = 2000) {
   let t;
   return (...args) => {
     clearTimeout(t);
@@ -315,7 +447,7 @@ elms.searchInput.addEventListener(
     searchTerm = elms.searchInput.value;
     page = 1;
     renderAll();
-  }, 300)
+  }, 2000)
 );
 
 
@@ -331,31 +463,30 @@ elms.nextPageBtn.addEventListener("click", () => {
 
 
 (function migrateIfNeeded(){
-  
-  if (tasks.length > 0 && tasks[0].createdAtUtc) return;
+  if (tasks.length > 0 && tasks[0].createdAtUtc) {
+    updateHistoryUI();
+    return;
+  }
 
-  
   tasks = tasks.map(t => {
-    if (t.createdAtUtc) return t;
-
     const createdGuess = t.createdAt ? new Date(t.createdAt) : new Date();
     const editedGuess = t.editedAt ? new Date(t.editedAt) : null;
 
     return {
       id: Number(t.id) || nextId++,
-      title: t.title || t.taskName || "",
-      description: t.description || t.taskInput || "",
+      title: t.title || "",
+      description: t.description || "",
       createdAtUtc: isNaN(createdGuess) ? nowUtcIso() : createdGuess.toISOString(),
       editedAtUtc: editedGuess && !isNaN(editedGuess) ? editedGuess.toISOString() : null,
       dueAtUtc: null,
     };
   });
 
-  
   const maxId = tasks.reduce((m, x) => Math.max(m, Number(x.id) || 0), 0);
   nextId = Math.max(nextId, maxId + 1);
 
   saveAll();
+  updateHistoryUI();
 })();
 
 renderAll();
