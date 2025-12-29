@@ -1,218 +1,98 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
+import TaskFormDialog from "./TaskFormDialog";
 
-function App() {
-  
-  const [taskName, setTaskName] = useState("");
-  const [taskDesc, setTaskDesc] = useState("");
-  const [dueDate, setDueDate] = useState("");
+function safeParse(json, fallback) {
+  try {
+    const v = JSON.parse(json);
+    if (Array.isArray(v)) return v;
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
 
-  
-  const [tasks, setTasks] = useState(() => {
+export default function App() {
+  const [tasks, setTasks] = useState(function () {
     const saved = localStorage.getItem("tasks");
-    return saved ? JSON.parse(saved) : [];
+    if (!saved) return [];
+    return safeParse(saved, []);
   });
 
-  
   useEffect(() => {
     localStorage.setItem("tasks", JSON.stringify(tasks));
   }, [tasks]);
 
-  
-  const dlgRef = useRef(null);
-  const [editingId, setEditingId] = useState(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [editDesc, setEditDesc] = useState("");
-  const [editDue, setEditDue] = useState("");
+  function addTask(data) {
+    const nowUtc = new Date().toISOString();
+    const dueUtc = new Date(data.due).toISOString();
 
-  const addTask = () => {
-    if (!taskName || !taskDesc || !dueDate) {
-      alert("All fields are required");
-      return;
-    }
-
-    const now = new Date().toLocaleString();
-
-    const newTask = {
+    const task = {
       id: Date.now(),
-      title: taskName.trim(),
-      desc: taskDesc.trim(),
-      due: dueDate,
-      createdAt: now,
+      title: data.title,
+      desc: data.desc,
+      due: dueUtc,
+      createdAt: nowUtc,
       editedAt: null,
     };
 
-    setTasks((prev) => [...prev, newTask]);
+    setTasks(function (prev) {
+      return prev.concat(task);
+    });
+  }
 
-    setTaskName("");
-    setTaskDesc("");
-    setDueDate("");
-  };
+  function editTask(data) {
+    const nowUtc = new Date().toISOString();
+    const dueUtc = new Date(data.due).toISOString();
 
-  const deleteTask = (id) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-    if (editingId === id) closeDialog();
-  };
+    setTasks(function (prev) {
+      const out = [];
+      for (let i = 0; i < prev.length; i++) {
+        const t = prev[i];
+        if (t.id === data.id) {
+          out.push({
+            id: t.id,
+            title: data.title,
+            desc: data.desc,
+            due: dueUtc,
+            createdAt: t.createdAt,
+            editedAt: nowUtc,
+          });
+        } else {
+          out.push(t);
+        }
+      }
+      return out;
+    });
+  }
 
-  const openDialog = (task) => {
-    setEditingId(task.id);
-    setEditTitle(task.title);
-    setEditDesc(task.desc);
-    setEditDue(task.due);
+  function deleteTask(id) {
+    setTasks(function (prev) {
+      const out = [];
+      for (let i = 0; i < prev.length; i++) {
+        if (prev[i].id !== id) out.push(prev[i]);
+      }
+      return out;
+    });
+  }
 
-    dlgRef.current?.showModal();
-  };
-
-  const closeDialog = () => {
-    setEditingId(null);
-    dlgRef.current?.close();
-  };
-
-  const saveEdit = (e) => {
-    e.preventDefault();
-
-    if (!editTitle || !editDesc || !editDue) {
-      alert("All fields are required");
-      return;
-    }
-
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === editingId
-          ? {
-              ...t,
-              title: editTitle.trim(),
-              desc: editDesc.trim(),
-              due: editDue,
-              editedAt: new Date().toLocaleString(),
-            }
-          : t
-      )
-    );
-
-    closeDialog();
-  };
+  function reorderTasks(newTasks) {
+    setTasks(newTasks);
+  }
 
   return (
     <div>
       <header>
         <h1>My To-Do List</h1>
-
-        <div className="formRow">
-          <div className="field">
-            <input
-              type="text"
-              value={taskName}
-              onChange={(e) => setTaskName(e.target.value)}
-              placeholder="Task title..."
-            />
-          </div>
-
-          <div className="field">
-            <textarea
-              value={taskDesc}
-              onChange={(e) => setTaskDesc(e.target.value)}
-              placeholder="Task description..."
-            />
-          </div>
-
-          <div className="field">
-            <input
-              type="datetime-local"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-            />
-          </div>
-
-          <button type="button" onClick={addTask}>
-            Add Task
-          </button>
-        </div>
       </header>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Task Title</th>
-            <th>Description</th>
-            <th>Due Date</th>
-            <th>Created At</th>
-            <th>Edited At</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {tasks.length === 0 ? (
-            <tr>
-              <td colSpan="6">No tasks yet</td>
-            </tr>
-          ) : (
-            tasks.map((t) => (
-              <tr key={t.id}>
-                <td>{t.title}</td>
-                <td>{t.desc}</td>
-                <td>{t.due}</td>
-                <td>{t.createdAt}</td>
-                <td>{t.editedAt ?? "—"}</td>
-                <td className="actionsCell">
-                  <button type="button" onClick={() => openDialog(t)}>
-                    Edit
-                  </button>
-                  <button type="button" onClick={() =>
-                    window.confirm("Delete this task?") && deleteTask(t.id)
-                  }>
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-
-    
-      <dialog ref={dlgRef} className="editDialog" onCancel={closeDialog}>
-        <h2>Edit Task</h2>
-
-        <form onSubmit={saveEdit} className="dialogForm">
-          <label>
-            Title
-            <input
-              type="text"
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-            />
-          </label>
-
-          <label>
-            Description
-            <textarea
-              value={editDesc}
-              onChange={(e) => setEditDesc(e.target.value)}
-              rows={4}
-            />
-          </label>
-
-          <label>
-            Due Date
-            <input
-              type="datetime-local"
-              value={editDue}
-              onChange={(e) => setEditDue(e.target.value)}
-            />
-          </label>
-
-          <div className="dialogBtns">
-            <button type="button" onClick={closeDialog}>
-              Cancel
-            </button>
-            <button type="submit">Save</button>
-          </div>
-        </form>
-      </dialog>
+      <TaskFormDialog
+        tasks={tasks}
+        onAdd={addTask}
+        onEdit={editTask}
+        onDelete={deleteTask}
+        onReorder={reorderTasks}
+      />
     </div>
   );
 }
-
-export default App;
