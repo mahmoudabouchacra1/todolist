@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-export default function TaskFormDialog({ tasks, onAdd, onEdit, onDelete, onReorder }) {
+export default function TaskFormDialog({
+  tasks,
+  onAdd,
+  onEdit,
+  onDelete,
+  onReorder,
+  onStart,
+  onStop,
+  onToggleComplete,
+}) {
   const dialogRef = useRef(null);
   const deleteDlgRef = useRef(null);
 
@@ -20,6 +29,10 @@ export default function TaskFormDialog({ tasks, onAdd, onEdit, onDelete, onReord
     return new Date().getTime();
   });
 
+  const [tickMs, setTickMs] = useState(function () {
+    return new Date().getTime();
+  });
+
   const [dragId, setDragId] = useState(null);
   const [overId, setOverId] = useState(null);
 
@@ -28,6 +41,13 @@ export default function TaskFormDialog({ tasks, onAdd, onEdit, onDelete, onReord
       setNowMs(new Date().getTime());
     }, 15000);
     return () => clearInterval(timerNow);
+  }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setTickMs(new Date().getTime());
+    }, 1000);
+    return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
@@ -44,17 +64,38 @@ export default function TaskFormDialog({ tasks, onAdd, onEdit, onDelete, onReord
 
   function nowLocalInput() {
     const d = new Date(nowMs);
-    const yyyy = d.getFullYear();
-    const mm = pad2(d.getMonth() + 1);
-    const dd = pad2(d.getDate());
-    const hh = pad2(d.getHours());
-    const mi = pad2(d.getMinutes());
-    return yyyy + "-" + mm + "-" + dd + "T" + hh + ":" + mi;
+    return (
+      d.getFullYear() +
+      "-" +
+      pad2(d.getMonth() + 1) +
+      "-" +
+      pad2(d.getDate()) +
+      "T" +
+      pad2(d.getHours()) +
+      ":" +
+      pad2(d.getMinutes())
+    );
   }
 
   function toLocal(iso) {
     if (!iso) return "—";
     return new Date(iso).toLocaleString();
+  }
+
+  function formatDuration(ms) {
+    const total = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    return pad2(h) + ":" + pad2(m) + ":" + pad2(s);
+  }
+
+  function getLiveDuration(t) {
+    const base = t.durationMs || 0;
+    if (t.running && t.startedAt != null) {
+      return base + Math.max(0, tickMs - t.startedAt);
+    }
+    return base;
   }
 
   function validateTitle(v) {
@@ -275,7 +316,7 @@ export default function TaskFormDialog({ tasks, onAdd, onEdit, onDelete, onReord
   if (pageItems.length === 0) {
     rows.push(
       <tr key="empty">
-        <td colSpan="7">No tasks found</td>
+        <td colSpan="9">No tasks found</td>
       </tr>
     );
   } else {
@@ -283,6 +324,7 @@ export default function TaskFormDialog({ tasks, onAdd, onEdit, onDelete, onReord
       const t = pageItems[i];
       const isOver = overId === t.id;
       const isDragging = dragId === t.id;
+      const live = formatDuration(getLiveDuration(t));
 
       rows.push(
         <tr
@@ -293,7 +335,7 @@ export default function TaskFormDialog({ tasks, onAdd, onEdit, onDelete, onReord
           onDrop={function (e) {
             onDropRow(t.id, e);
           }}
-          className={isOver ? "dragOver" : isDragging ? "dragging" : ""}
+          className={(t.done ? "isDone " : "") + (isOver ? "dragOver" : isDragging ? "dragging" : "")}
         >
           <td style={{ width: "44px" }}>
             <span
@@ -309,13 +351,27 @@ export default function TaskFormDialog({ tasks, onAdd, onEdit, onDelete, onReord
             </span>
           </td>
           <td>{t.title}</td>
-          <td>{t.desc}</td>
+          <td className="desc">{t.desc}</td>
           <td>{toLocal(t.due)}</td>
+          <td className="timerText">{live}</td>
           <td>{toLocal(t.createdAt)}</td>
           <td>{toLocal(t.editedAt)}</td>
           <td className="actionsCell">
             <button type="button" onClick={function () { openEdit(t); }}>
               Edit
+            </button>
+            {!t.done && !t.running ? (
+              <button type="button" onClick={function () { onStart(t.id); }}>
+                Start
+              </button>
+            ) : null}
+            {!t.done && t.running ? (
+              <button type="button" onClick={function () { onStop(t.id); }}>
+                Stop
+              </button>
+            ) : null}
+            <button type="button" onClick={function () { onToggleComplete(t.id); }}>
+              {t.done ? "Uncomplete" : "Complete"}
             </button>
             <button type="button" onClick={function () { openDelete(t.id); }}>
               Delete
@@ -364,6 +420,7 @@ export default function TaskFormDialog({ tasks, onAdd, onEdit, onDelete, onReord
             <th>Title</th>
             <th>Description</th>
             <th>Due (Local)</th>
+            <th>Timer</th>
             <th>Created (Local)</th>
             <th>Edited (Local)</th>
             <th>Actions</th>

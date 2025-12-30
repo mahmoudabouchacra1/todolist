@@ -288,7 +288,9 @@ td:nth-child(5) {
 .dragHandle{ cursor:grab; user-select:none; font-size:18px; padding:0 6px; }
 tr.dragging{ opacity:0.5; }
 tr.dragOver{ outline:2px dashed #3b82f6; outline-offset:-4px; }
-
+.timerText{ font-weight:800; }
+.isDone{ opacity:0.75; }
+.isDone .desc{ text-decoration:line-through; opacity:0.85; }
 .pagination{
   display:flex;
   align-items:center;

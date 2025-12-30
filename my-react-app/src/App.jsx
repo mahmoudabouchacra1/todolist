@@ -34,6 +34,10 @@ export default function App() {
       due: dueUtc,
       createdAt: nowUtc,
       editedAt: null,
+      running: false,
+      done: false,
+      startedAt: null,
+      durationMs: 0,
     };
 
     setTasks(function (prev) {
@@ -51,11 +55,10 @@ export default function App() {
         const t = prev[i];
         if (t.id === data.id) {
           out.push({
-            id: t.id,
+            ...t,
             title: data.title,
             desc: data.desc,
             due: dueUtc,
-            createdAt: t.createdAt,
             editedAt: nowUtc,
           });
         } else {
@@ -80,6 +83,88 @@ export default function App() {
     setTasks(newTasks);
   }
 
+  function startTask(id) {
+    const nowMs = new Date().getTime();
+    setTasks(function (prev) {
+      const out = [];
+      for (let i = 0; i < prev.length; i++) {
+        const t = prev[i];
+        if (t.id === id) {
+          if (t.done || t.running) {
+            out.push(t);
+          } else {
+            out.push({
+              ...t,
+              running: true,
+              startedAt: nowMs,
+            });
+          }
+        } else {
+          out.push(t);
+        }
+      }
+      return out;
+    });
+  }
+
+  function stopTask(id) {
+    const nowMs = new Date().getTime();
+    setTasks(function (prev) {
+      const out = [];
+      for (let i = 0; i < prev.length; i++) {
+        const t = prev[i];
+        if (t.id === id) {
+          if (!t.running || t.startedAt == null) {
+            out.push(t);
+          } else {
+            const add = Math.max(0, nowMs - t.startedAt);
+            out.push({
+              ...t,
+              running: false,
+              startedAt: null,
+              durationMs: (t.durationMs || 0) + add,
+            });
+          }
+        } else {
+          out.push(t);
+        }
+      }
+      return out;
+    });
+  }
+
+  function toggleComplete(id) {
+    const nowMs = new Date().getTime();
+    setTasks(function (prev) {
+      const out = [];
+      for (let i = 0; i < prev.length; i++) {
+        const t = prev[i];
+        if (t.id === id) {
+          let duration = t.durationMs || 0;
+          let running = t.running || false;
+          let startedAt = t.startedAt;
+
+          if (running && startedAt != null) {
+            duration = duration + Math.max(0, nowMs - startedAt);
+            running = false;
+            startedAt = null;
+          }
+
+          out.push({
+            ...t,
+            done: !t.done,
+            running: running,
+            startedAt: startedAt,
+            durationMs: duration,
+          });
+        } else {
+          out.push(t);
+        }
+      }
+      return out;
+    });
+  }
+
   return (
     <div>
       <header>
@@ -92,6 +177,9 @@ export default function App() {
         onEdit={editTask}
         onDelete={deleteTask}
         onReorder={reorderTasks}
+        onStart={startTask}
+        onStop={stopTask}
+        onToggleComplete={toggleComplete}
       />
     </div>
   );
